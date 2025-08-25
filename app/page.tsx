@@ -9,8 +9,10 @@ import { Play, Pause, SkipForward, Volume2, Settings, ExternalLink, Trash2 } fro
 import ProjectionPreview from "@/components/projection-preview"
 import AIDetectionPanel from "@/components/ai-detection-panel"
 import { SongLibrary } from "@/components/song-library"
+import BibleVersionSelector from "@/components/bible-version-selector"
 import { useAIDetection } from "@/hooks/use-ai-detection"
 import { useProjectionSync } from "@/hooks/use-projection-sync"
+import { useBibleVersions } from "@/hooks/use-bible-versions"
 
 interface AISuggestion {
   id: string
@@ -37,6 +39,8 @@ export default function OperatorDashboard() {
 
   const { currentContent, updateProjection, clearProjection } = useProjectionSync()
 
+  const { versions, selectedVersion, setSelectedVersion, getVerse } = useBibleVersions()
+
   const handleAcceptSuggestion = (suggestion: AISuggestion) => {
     updateProjection({
       type: suggestion.type,
@@ -56,6 +60,17 @@ export default function OperatorDashboard() {
 
   const openProjectionView = () => {
     window.open("/projection", "_blank", "fullscreen=yes")
+  }
+
+  const handleShowSampleVerse = () => {
+    const verseContent = getVerse("Psalm 23:1")
+    if (verseContent) {
+      updateProjection({
+        type: "verse",
+        content: verseContent.content,
+        reference: `${verseContent.reference} (${verseContent.version.abbreviation})`,
+      })
+    }
   }
 
   return (
@@ -98,9 +113,10 @@ export default function OperatorDashboard() {
           {/* Main Projection Control */}
           <div className="lg:col-span-2">
             <Tabs defaultValue="projection" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="projection">Projection Control</TabsTrigger>
                 <TabsTrigger value="songs">Song Library</TabsTrigger>
+                <TabsTrigger value="bible">Bible Versions</TabsTrigger>
               </TabsList>
 
               <TabsContent value="projection">
@@ -149,13 +165,7 @@ export default function OperatorDashboard() {
                       <Button
                         variant="outline"
                         className="h-20 flex-col gap-2 bg-transparent"
-                        onClick={() =>
-                          updateProjection({
-                            type: "verse",
-                            content: "The Lord is my shepherd, I lack nothing.",
-                            reference: "Psalm 23:1",
-                          })
-                        }
+                        onClick={handleShowSampleVerse}
                       >
                         <span className="text-2xl">📖</span>
                         <span className="text-sm">Bible</span>
@@ -214,6 +224,66 @@ export default function OperatorDashboard() {
                   </CardHeader>
                   <CardContent>
                     <SongLibrary />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="bible">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="font-serif">Bible Versions</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Select your preferred Bible translation for verse display
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Version Selector */}
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Current Version</label>
+                      <BibleVersionSelector
+                        versions={versions}
+                        selectedVersion={selectedVersion}
+                        onVersionChange={setSelectedVersion}
+                      />
+                    </div>
+
+                    {/* Sample Verses */}
+                    <div>
+                      <label className="text-sm font-medium mb-3 block">Sample Verses</label>
+                      <div className="grid gap-3">
+                        {["John 3:16", "Jeremiah 29:11", "Romans 8:28", "Philippians 4:13", "Psalm 23:1"].map(
+                          (reference) => {
+                            const verseContent = getVerse(reference)
+                            return (
+                              <Card
+                                key={reference}
+                                className="p-4 hover:bg-muted/50 cursor-pointer transition-colors"
+                                onClick={() =>
+                                  verseContent &&
+                                  updateProjection({
+                                    type: "verse",
+                                    content: verseContent.content,
+                                    reference: `${verseContent.reference} (${verseContent.version.abbreviation})`,
+                                  })
+                                }
+                              >
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex-1">
+                                    <div className="font-medium text-sm mb-1">{reference}</div>
+                                    <div className="text-sm text-muted-foreground line-clamp-2">
+                                      {verseContent?.content}
+                                    </div>
+                                  </div>
+                                  <Button variant="ghost" size="sm">
+                                    Project
+                                  </Button>
+                                </div>
+                              </Card>
+                            )
+                          },
+                        )}
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>

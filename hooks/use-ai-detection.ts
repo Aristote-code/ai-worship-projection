@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useSongLibrary } from "@/hooks/use-song-library"
+import { useBibleVersions } from "@/hooks/use-bible-versions"
 
 interface AISuggestion {
   id: string
@@ -24,33 +25,6 @@ interface DetectionActivity {
   detected: boolean
 }
 
-// Mock Bible verses database
-const MOCK_BIBLE_VERSES = [
-  {
-    reference: "John 3:16",
-    content:
-      "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.",
-  },
-  {
-    reference: "Jeremiah 29:11",
-    content:
-      'For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, to give you hope and a future.',
-  },
-  {
-    reference: "Romans 8:28",
-    content:
-      "And we know that in all things God works for the good of those who love him, who have been called according to his purpose.",
-  },
-  {
-    reference: "Philippians 4:13",
-    content: "I can do all this through him who gives me strength.",
-  },
-  {
-    reference: "Psalm 23:1",
-    content: "The Lord is my shepherd, I lack nothing.",
-  },
-]
-
 const MOCK_SPEECH_PATTERNS = [
   "Let's turn to John chapter 3 verse 16",
   "As it says in Jeremiah 29:11",
@@ -70,26 +44,44 @@ export function useAIDetection() {
   const [detectionActivity, setDetectionActivity] = useState<DetectionActivity[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const { songs, getSong } = useSongLibrary()
+  const { selectedVersion, getVerse, searchVerses } = useBibleVersions()
 
   const generateSuggestion = useCallback(
     (detectedText: string): AISuggestion | null => {
-      // Simulate verse detection
-      for (const verse of MOCK_BIBLE_VERSES) {
-        const verseRef = verse.reference.toLowerCase()
-        const textLower = detectedText.toLowerCase()
+      const versePatterns = [
+        /john\s*3:?16/i,
+        /jeremiah\s*29:?11/i,
+        /romans\s*8:?28/i,
+        /philippians\s*4:?13/i,
+        /psalm\s*23:?1/i,
+      ]
 
-        if (
-          textLower.includes(verseRef) ||
-          textLower.includes(verseRef.replace(":", " ")) ||
-          textLower.includes(verseRef.split(" ")[0])
-        ) {
-          return {
-            id: Math.random().toString(36).substr(2, 9),
-            type: "verse",
-            content: verse.content,
-            reference: verse.reference,
-            confidence: Math.floor(Math.random() * 20) + 80, // 80-99% confidence
-            timestamp: new Date(),
+      const referenceMap: { [key: string]: string } = {
+        john: "John 3:16",
+        jeremiah: "Jeremiah 29:11",
+        romans: "Romans 8:28",
+        philippians: "Philippians 4:13",
+        psalm: "Psalm 23:1",
+      }
+
+      for (const pattern of versePatterns) {
+        if (pattern.test(detectedText)) {
+          const bookName = Object.keys(referenceMap).find((book) => detectedText.toLowerCase().includes(book))
+
+          if (bookName) {
+            const reference = referenceMap[bookName]
+            const verseContent = getVerse(reference)
+
+            if (verseContent) {
+              return {
+                id: Math.random().toString(36).substr(2, 9),
+                type: "verse",
+                content: verseContent.content,
+                reference: `${verseContent.reference} (${verseContent.version.abbreviation})`,
+                confidence: Math.floor(Math.random() * 20) + 80, // 80-99% confidence
+                timestamp: new Date(),
+              }
+            }
           }
         }
       }
@@ -99,7 +91,6 @@ export function useAIDetection() {
         const textLower = detectedText.toLowerCase()
 
         if (textLower.includes(songName) || textLower.includes("sing") || textLower.includes("worship")) {
-          // Pick a random section from the song
           const randomSectionIndex = Math.floor(Math.random() * song.sections.length)
           const section = song.sections[randomSectionIndex]
 
@@ -126,7 +117,7 @@ export function useAIDetection() {
 
       return null
     },
-    [songs],
+    [songs, getVerse],
   )
 
   const simulateDetection = useCallback(() => {
@@ -134,7 +125,6 @@ export function useAIDetection() {
 
     setIsProcessing(true)
 
-    // Simulate speech recognition delay
     setTimeout(
       () => {
         const randomPattern = MOCK_SPEECH_PATTERNS[Math.floor(Math.random() * MOCK_SPEECH_PATTERNS.length)]
@@ -151,7 +141,6 @@ export function useAIDetection() {
 
         if (suggestion) {
           setSuggestions((prev) => {
-            // Avoid duplicate suggestions
             const exists = prev.some((s) => s.reference === suggestion.reference)
             if (exists) return prev
             return [suggestion, ...prev.slice(0, 4)] // Keep max 5 suggestions
@@ -204,5 +193,6 @@ export function useAIDetection() {
     stopListening,
     removeSuggestion,
     clearActivity,
+    selectedVersion,
   }
 }
