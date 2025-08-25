@@ -7,6 +7,11 @@ interface ProjectionContent {
   content: string
   reference?: string
   timestamp?: number
+  songData?: {
+    songId: string
+    sectionIndex: number
+    totalSections: number
+  }
 }
 
 const STORAGE_KEY = "spiritcast-projection-content"
@@ -38,7 +43,12 @@ export function useProjectionSync() {
       setCurrentContent(e.detail)
     }
 
+    const handleClearEvent = () => {
+      setCurrentContent({ type: "blank", content: "" })
+    }
+
     window.addEventListener("projection-update" as any, handleCustomEvent)
+    window.addEventListener("projection-clear" as any, handleClearEvent)
 
     // Load initial content from localStorage
     try {
@@ -54,6 +64,7 @@ export function useProjectionSync() {
     return () => {
       window.removeEventListener("storage", handleStorageChange)
       window.removeEventListener("projection-update" as any, handleCustomEvent)
+      window.removeEventListener("projection-clear" as any, handleClearEvent)
     }
   }, [])
 
@@ -80,11 +91,14 @@ export function useProjectionSync() {
 
   // Function to clear projection
   const clearProjection = useCallback(() => {
-    updateProjection({
+    localStorage.removeItem(STORAGE_KEY)
+    window.dispatchEvent(new CustomEvent("projection-clear"))
+
+    setCurrentContent({
       type: "blank",
       content: "",
     })
-  }, [updateProjection])
+  }, [])
 
   return {
     currentContent,

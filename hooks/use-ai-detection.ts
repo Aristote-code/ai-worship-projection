@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useSongLibrary } from "@/hooks/use-song-library"
 
 interface AISuggestion {
   id: string
@@ -9,6 +10,11 @@ interface AISuggestion {
   reference?: string
   confidence: number
   timestamp: Date
+  songData?: {
+    songId: string
+    sectionIndex: number
+    totalSections: number
+  }
 }
 
 interface DetectionActivity {
@@ -18,7 +24,7 @@ interface DetectionActivity {
   detected: boolean
 }
 
-// Mock Bible verses and songs database
+// Mock Bible verses database
 const MOCK_BIBLE_VERSES = [
   {
     reference: "John 3:16",
@@ -45,29 +51,6 @@ const MOCK_BIBLE_VERSES = [
   },
 ]
 
-const MOCK_SONGS = [
-  {
-    reference: "Amazing Grace - Verse 1",
-    content:
-      "Amazing Grace, how sweet the sound\nThat saved a wretch like me\nI once was lost, but now am found\nWas blind, but now I see",
-  },
-  {
-    reference: "How Great Thou Art - Chorus",
-    content:
-      "Then sings my soul, my Savior God, to Thee\nHow great Thou art, how great Thou art\nThen sings my soul, my Savior God, to Thee\nHow great Thou art, how great Thou art",
-  },
-  {
-    reference: "Blessed Be Your Name - Verse 1",
-    content:
-      "Blessed be Your name\nIn the land that is plentiful\nWhere Your streams of abundance flow\nBlessed be Your name",
-  },
-  {
-    reference: "10,000 Reasons - Chorus",
-    content:
-      "Bless the Lord, O my soul\nO my soul, worship His holy name\nSing like never before, O my soul\nI'll worship Your holy name",
-  },
-]
-
 const MOCK_SPEECH_PATTERNS = [
   "Let's turn to John chapter 3 verse 16",
   "As it says in Jeremiah 29:11",
@@ -76,8 +59,9 @@ const MOCK_SPEECH_PATTERNS = [
   "The psalmist writes in Psalm 23",
   "We're going to sing Amazing Grace",
   "Let's worship with How Great Thou Art",
-  "Our next song is Blessed Be Your Name",
-  "We'll close with 10,000 Reasons",
+  "Our next song is 10,000 Reasons",
+  "Let's continue with the next verse",
+  "We'll sing the chorus again",
 ]
 
 export function useAIDetection() {
@@ -85,48 +69,65 @@ export function useAIDetection() {
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([])
   const [detectionActivity, setDetectionActivity] = useState<DetectionActivity[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  const { songs, getSong } = useSongLibrary()
 
-  const generateSuggestion = useCallback((detectedText: string): AISuggestion | null => {
-    // Simulate verse detection
-    for (const verse of MOCK_BIBLE_VERSES) {
-      const verseRef = verse.reference.toLowerCase()
-      const textLower = detectedText.toLowerCase()
+  const generateSuggestion = useCallback(
+    (detectedText: string): AISuggestion | null => {
+      // Simulate verse detection
+      for (const verse of MOCK_BIBLE_VERSES) {
+        const verseRef = verse.reference.toLowerCase()
+        const textLower = detectedText.toLowerCase()
 
-      if (
-        textLower.includes(verseRef) ||
-        textLower.includes(verseRef.replace(":", " ")) ||
-        textLower.includes(verseRef.split(" ")[0])
-      ) {
-        return {
-          id: Math.random().toString(36).substr(2, 9),
-          type: "verse",
-          content: verse.content,
-          reference: verse.reference,
-          confidence: Math.floor(Math.random() * 20) + 80, // 80-99% confidence
-          timestamp: new Date(),
+        if (
+          textLower.includes(verseRef) ||
+          textLower.includes(verseRef.replace(":", " ")) ||
+          textLower.includes(verseRef.split(" ")[0])
+        ) {
+          return {
+            id: Math.random().toString(36).substr(2, 9),
+            type: "verse",
+            content: verse.content,
+            reference: verse.reference,
+            confidence: Math.floor(Math.random() * 20) + 80, // 80-99% confidence
+            timestamp: new Date(),
+          }
         }
       }
-    }
 
-    // Simulate song detection
-    for (const song of MOCK_SONGS) {
-      const songName = song.reference.split(" - ")[0].toLowerCase()
-      const textLower = detectedText.toLowerCase()
+      for (const song of songs) {
+        const songName = song.title.toLowerCase()
+        const textLower = detectedText.toLowerCase()
 
-      if (textLower.includes(songName) || textLower.includes("sing") || textLower.includes("worship")) {
-        return {
-          id: Math.random().toString(36).substr(2, 9),
-          type: "song",
-          content: song.content,
-          reference: song.reference,
-          confidence: Math.floor(Math.random() * 15) + 75, // 75-89% confidence
-          timestamp: new Date(),
+        if (textLower.includes(songName) || textLower.includes("sing") || textLower.includes("worship")) {
+          // Pick a random section from the song
+          const randomSectionIndex = Math.floor(Math.random() * song.sections.length)
+          const section = song.sections[randomSectionIndex]
+
+          const getSectionLabel = (sectionType: string, sectionNumber?: number): string => {
+            const typeLabel = sectionType.charAt(0).toUpperCase() + sectionType.slice(1)
+            return sectionNumber ? `${typeLabel} ${sectionNumber}` : typeLabel
+          }
+
+          return {
+            id: Math.random().toString(36).substr(2, 9),
+            type: "song",
+            content: section.content,
+            reference: `${song.title} - ${getSectionLabel(section.type, section.number)}`,
+            confidence: Math.floor(Math.random() * 15) + 75, // 75-89% confidence
+            timestamp: new Date(),
+            songData: {
+              songId: song.id,
+              sectionIndex: randomSectionIndex,
+              totalSections: song.sections.length,
+            },
+          }
         }
       }
-    }
 
-    return null
-  }, [])
+      return null
+    },
+    [songs],
+  )
 
   const simulateDetection = useCallback(() => {
     if (!isListening) return

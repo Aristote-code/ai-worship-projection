@@ -9,6 +9,11 @@ interface ProjectionContent {
   content: string
   reference?: string
   timestamp?: number
+  songData?: {
+    songId: string
+    sectionIndex: number
+    totalSections: number
+  }
 }
 
 export default function ProjectionView() {
@@ -89,6 +94,29 @@ export default function ProjectionView() {
             {displayContent.reference && (
               <div className="text-white/80 text-2xl md:text-3xl lg:text-4xl font-serif italic">
                 {displayContent.reference}
+              </div>
+            )}
+
+            {displayContent.type === "song" && displayContent.songData && (
+              <div className="mt-8 flex justify-center">
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: displayContent.songData.totalSections }).map((_, index) => (
+                    <div
+                      key={index}
+                      className={cn(
+                        "w-3 h-3 rounded-full transition-all duration-300",
+                        index === displayContent.songData!.sectionIndex
+                          ? "bg-white scale-125"
+                          : index < displayContent.songData!.sectionIndex
+                            ? "bg-white/60"
+                            : "bg-white/20",
+                      )}
+                    />
+                  ))}
+                </div>
+                <div className="ml-4 text-white/60 text-lg">
+                  {displayContent.songData.sectionIndex + 1} / {displayContent.songData.totalSections}
+                </div>
               </div>
             )}
           </>
